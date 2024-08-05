@@ -25,7 +25,7 @@ button.defaultProps = {
 	onHover = true,
 	onClick = true,
 	callbacks = {},
-	sounds = {click = "rbxassetid://6324790483", hover = "rbxassetid://7218169592", hoverVolume = 1, clickVolume = 1}
+	sounds = {click = "rbxassetid://18497925021", hover = "rbxassetid://18497999901", hoverVolume = 0.25, clickVolume = 0.5}
 }
 
 
@@ -76,10 +76,10 @@ function button.new(props)
 				end
 			}
 		else
-			local newbutton = New "Imagebutton" {
-			Image = props.Image,
-			BackgroundTransparency = 1
-		}
+			New "Imagebutton" {
+				Image = props.Image,
+				BackgroundTransparency = 1
+			}
 		end
 	end
 	return self
@@ -91,7 +91,7 @@ function button:hover(state)
 	end
 
 	task.spawn(function()
-		if self.sounds.hover then
+		if self.sounds.hover and state then
 		_playLocalSound(self.sounds.hover, self.sounds.hoverVolume or 1)
 		end
 	end)

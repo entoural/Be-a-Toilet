@@ -10,7 +10,7 @@ billboardController.executePriority = 6
 
 local billboard = {}
 billboard.__index = billboard
-billboard.activationRange = 20
+billboard.activationRange = 10
 
 billboardController.billboards = {}
 

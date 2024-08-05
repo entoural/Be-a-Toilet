@@ -8,14 +8,16 @@ local dataService = {}
 dataService.profiles = {}
 
 local profileStore = profileService.GetProfileStore(
-	"BeAToiletDSB61",
+	"BeAToiletDSR1",
 	{
 		Logins = 0,
 		Water = 150,
 		LargestSize = 0,
 		Logs = {},
+		FriendsJoined = {},
 		Purchases = {},
 		OwnedPasses = {},
+		RewardsClaimed = {["Friends"] = false, ["Group"] = false, ["Roblox Follow"] = false, ["Twitter Follow"] = false},
 		Inventory = {},
 		EquippedId = {},
 		--[[streakInfo = {started = os.time() - 86400 * 30 + 30, length = 29, lastClaimedSpin = os.time()},]]

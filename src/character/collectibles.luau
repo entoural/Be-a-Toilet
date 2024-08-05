@@ -1,5 +1,7 @@
 local runService = game:GetService("RunService")
 local rs = game:GetService("ReplicatedStorage")
+local soundService = game:GetService("SoundService")
+local debris = game:GetService("Debris")
 local players = game:GetService("Players")
 
 local plr = players.LocalPlayer
@@ -12,6 +14,16 @@ local collect = bridgeNet.ReferenceBridge("collect")
 local killBridge = bridgeNet.ReferenceBridge("killPlayer")
 
 local collectibles = {}
+collectibles.playingEatSound = false
+
+local function _playLocalSound(soundId, volume)
+	local sound = Instance.new("Sound")
+	sound.Parent = soundService
+	sound.Volume = volume or 1
+	sound.SoundId = soundId
+	soundService:PlayLocalSound(sound)
+	debris:AddItem(sound, sound.TimeLength)
+end
 
 function lerp(a, b, c)
 	return a + (b - a) * c
@@ -25,7 +37,7 @@ function quadBezier(t, p0, p1, p2)
 end
 
 function getMultiFromSize(size)
-    return size ^ (1 / 7)
+    return size ^ (1 / 4)
 end
 
 function getMidPointWithHeight(v1, v2)
@@ -46,51 +58,36 @@ function collectibles.getSizedToilet(size)
     return defaultSize * collectibles.sizeToMulti(size)
 end
 
+function collectibles.playEatingSound()
+    if collectibles.playingEatSound then return end
+    collectibles.playingEatSound = true
+
+    _playLocalSound("rbxassetid://5546592140", 0.5)
+    task.wait(0.1)
+    collectibles.playingEatSound = false
+end
+
 
 function collectibles.start(modules: {})
-
-    for i, v in workspace:WaitForChild("Collect"):GetDescendants() do
-        if not v:IsA("BasePart") then
-            continue
-        end
-
-        local value = Instance.new("NumberValue")
-        value.Name = "OriginalTransparency"
-        value.Value = v.Transparency
-        value.Parent = v
-    end
-
-    for i, v in workspace:WaitForChild("Collect"):GetChildren() do
-        if not v.Collected.Value then
-            continue
-        end
-
-        if v:IsA("BasePart") then
-            v.Transparency = 1
-        end
-
-        for _, instance in v:GetDescendants() do
-            if not instance:IsA("BasePart") then
-                continue
-            end
-            instance.Transparency = 1
-        end
-    end
 
     local function sizeToMulti(size)
         return size ^ (1 / 7)
     end
 
     local function isInRange(collectible)
-        local range = plr.Character:GetExtentsSize().Y * 0.6 + (sizeToMulti(plr.leaderstats.Size.Value) * 2)
-        local objectPosition = if collectible:IsA("BasePart") then collectible.Position else collectible:GetPivot().Position
-        if (plr.Character:GetPivot().Position - objectPosition).Magnitude <= range then
+        local collectiblePosition = if collectible:IsA("BasePart") then collectible.Position else collectible:GetPivot().Position
+
+        local size = if collectible:IsA("BasePart") then math.max(collectible.Size.X / 2, collectible.Size.Z / 2) * 1.5 else math.max(collectible:GetExtentsSize().X / 2, collectible:GetExtentsSize().Z / 2) * 1.5
+        local range = sizeToMulti(plr.leaderstats.Size.Value) * 6.76 + size
+        local playerPosition = plr.Character:GetPivot().Position
+
+        if (Vector3.new(collectiblePosition.X, playerPosition.Y, collectiblePosition.Z) - playerPosition).Magnitude < range then
             return true
         end
     end
 
     runService.Heartbeat:Connect(function()
-        if not plr.Character then
+        if not plr.Character or not plr.InfoPack.Deployed.Value then
             return
         end
 
@@ -122,13 +119,19 @@ function collectibles.start(modules: {})
     end)
 
     collected:Connect(function(content)
+        if plr.PlayerGui:WaitForChild("CollectibleBillboards"):FindFirstChild(content.name) then
+            plr.PlayerGui:WaitForChild("CollectibleBillboards"):FindFirstChild(content.name).Enabled = not content.isCollected
+        end
+
         if not content.isLocal then
             local instance = workspace:WaitForChild("Collect"):FindFirstChild(content.name)
             if instance:IsA("BasePart") then
                 if content.isCollected then
                     instance.Transparency = 1
+                    instance.CanCollide = false
                 else
                     instance.Transparency = instance.OriginalTransparency.Value
+                    instance.CanCollide = true
                 end
             end
 
@@ -139,11 +142,15 @@ function collectibles.start(modules: {})
 
                 if content.isCollected then
                     v.Transparency = 1
+                    v.CanCollide = false
                 else
                     v.Transparency = v.OriginalTransparency.Value
+                    v.CanCollide = true
                 end
             end
         else
+            task.spawn(collectibles.playEatingSound)
+
             local instance = workspace:WaitForChild("Collect"):FindFirstChild(content.name)
             local clone = instance:Clone()
             clone.Parent = workspace
@@ -151,8 +158,10 @@ function collectibles.start(modules: {})
             if instance:IsA("BasePart") then
                 if content.isCollected then
                     instance.Transparency = 1
+                    instance.CanCollide = false
                 else
                     instance.Transparency = instance.OriginalTransparency.Value
+                    instance.CanCollide = true
                 end
             end
 
@@ -163,8 +172,10 @@ function collectibles.start(modules: {})
 
                 if content.isCollected then
                     v.Transparency = 1
+                    v.CanCollide = false
                 else
                     v.Transparency = v.OriginalTransparency.Value
+                    v.CanCollide = true
                 end
             end
 
@@ -197,7 +208,6 @@ function collectibles.start(modules: {})
             end
 
             local origPos = rigged.Position
-            local mid = getMidPointWithHeight(origPos, plr.Character.Toilet.Attachment.WorldCFrame.Position)
             local totalTweenTime = 0.5
             local position = 0
             local started = os.clock()
@@ -218,21 +228,40 @@ function collectibles.start(modules: {})
             trail.Attachment1 = a2
             trail.Parent = rigged
 
+            local sound = clone:FindFirstChild("Sound")
+            if sound then
+                sound.Parent = rigged
+                sound:Play()
+            end
+
             local function beginSpinning()
                 trail.Enabled = false
                 local axis = Vector3.new(math.random(), math.random(), math.random())
-                spinHeartbeat = runService.Heartbeat:Connect(function()
-                    rigged.CFrame *= CFrame.Angles(math.rad(1 * axis.X) * 3, math.rad(1 * axis.Y) * 3, math.rad(1 * axis.Z) * 3)
+                spinHeartbeat = runService.Heartbeat:Connect(function(dt)
+                    rigged.CFrame *= CFrame.Angles(math.rad(dt * axis.X) * 90, math.rad(dt * axis.Y) * 90, math.rad(dt * axis.Z) * 90)
                 end)
             end
 
             heartbeat = runService.Heartbeat:Connect(function()
-                position = math.clamp(os.clock() - started, 0, totalTweenTime) / totalTweenTime
+                if not plr.Character.Toilet then
+                    heartbeat:Disconnect()
+                end
+
+                local currentTime = os.clock()
+                local mid = getMidPointWithHeight(origPos, plr.Character.Toilet.Attachment.WorldCFrame.Position)
+                position = math.clamp(currentTime - started, 0, totalTweenTime) / totalTweenTime
+
                 if position == 1 and not spinHeartbeat then
                     beginSpinning()
                 end
+
                 local X, Y, Z = rigged.CFrame:ToOrientation()
                 rigged.CFrame = CFrame.new(quadBezier(position, origPos, mid, plr.Character.Toilet.Attachment.WorldCFrame.Position)) * CFrame.Angles(X, Y, Z)
+
+                local scalePosition = math.clamp(currentTime - started, 0, totalTweenTime * 6) / (totalTweenTime * 6)
+                if clone:IsA("Model") then
+                    clone:ScaleTo(math.clamp(1 - scalePosition, 0.01, 1))
+                end
             end)
 
             local deathHeartbeat = plr.Character.Humanoid.Died:Connect(function()
@@ -261,13 +290,13 @@ function collectibles.start(modules: {})
 
     killBridge:Connect(function(content)
         print("Received", content)
-        if content.killed == plr then
+        --[[if content.killed == plr then
             task.spawn(function()
                 workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
                 plr.CharacterAdded:Wait()
                 workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
             end)
-        end
+        end]]
 
         if content.killed.Character.HumanoidRootPart:FindFirstChild("NameTag") then
             content.killed.Character.HumanoidRootPart.NameTag:Destroy()
@@ -279,7 +308,7 @@ function collectibles.start(modules: {})
 
         local connection
         connection = runService.Heartbeat:Connect(function()
-            if not content.killed or not content.killedBy or not content.killed.Character or not content.killedBy.Character or content.killed.Character.Humanoid.Health == 0 then
+            if not content.killed or not content.killedBy or not content.killed.Character or not content.killedBy.Character or not content.killedBy.Character.Toilet or content.killed.Character.Humanoid.Health == 0 then
                 connection:Disconnect()
                 connection = nil
                 return

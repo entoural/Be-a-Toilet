@@ -8,6 +8,7 @@ local sift = require(packages.Sift)
 local library
 local toiletInfo
 local toiletViewport
+local colorUtil
 local springUtil
 
 local dictionary = sift.Dictionary
@@ -33,6 +34,7 @@ function toiletFrame.new(name, id, clickCallback)
     self.size = value(UDim2.new(1, 0, 1, 0))
     --self.color = value(Color3.new(1, 1, 1))
     self.waterBoost = library.toilets[name].waterBoost
+    local color = library.toilets[name].color
     self.callback = clickCallback
 
     self.frame = new "Frame" {
@@ -87,12 +89,17 @@ function toiletFrame.new(name, id, clickCallback)
                 Position = UDim2.new(0.5, 0, 0.5, 0),
                 --ImageColor3 = spring(self.color, 15, 1),
                 BackgroundTransparency = 1,
-                Image = "rbxassetid://18337189576",
+                ImageTransparency = 0.6,
+                Image = "rbxassetid://18759482627",
                 ZIndex = 2,
 
                 [children] = {
                     new "UICorner" {
                         CornerRadius = UDim.new(0.2, 0)
+                    },
+
+                    new "UIGradient" {
+                        Color = if color then colorUtil.colorToGradient(color) else colorUtil.colorToGradient(Color3.new(0.7, 0.7, 0.7))
                     }
                 },
 
@@ -162,6 +169,7 @@ function toiletFrame.start(modules)
     toiletInfo = modules.toiletInfo
     springUtil = modules.Util.spring
     toiletViewport = modules.toiletViewport
+    colorUtil = modules.Util.colorText
 end
 
 return toiletFrame

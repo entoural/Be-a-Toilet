@@ -1,6 +1,5 @@
 local players = game:GetService("Players")
 local rs = game:GetService("ReplicatedStorage")
-local runService = game:GetService("RunService")
 local soundService = game:GetService("SoundService")
 local debris = game:GetService("Debris")
 
@@ -12,12 +11,12 @@ local bridgeNet = require(packages.BridgeNet2)
 local sift = require(packages.Sift)
 local fusion = require(packages.Fusion)
 local util
-local billboard
 local shopUI
 local button
 local library
 local toiletFrame
 local marketplaceEffect
+local burst
 local frame
 
 local updateInventoryBridge = bridgeNet.ReferenceBridge("updatedInventory")
@@ -33,8 +32,11 @@ local new = fusion.New
 local inventoryUI = {}
 inventoryUI.startThread = true
 
+inventoryUI.skinsFrame = nil
 inventoryUI.selectedToilet = nil
 inventoryUI.equippedToilet = nil
+inventoryUI.trashButton = nil
+inventoryUI.moreInventory = nil
 inventoryUI.deleteEnabled = false
 inventoryUI.autoDeleteSelection = {}
 
@@ -43,7 +45,7 @@ inventoryUI.defaultProps = {
 	onHover = true,
 	onClick = true,
 	callbacks = {},
-	sounds = {click = "rbxassetid://6324790483", hover = "rbxassetid://7218169592", hoverVolume = 2}
+	sounds = {click = "rbxassetid://18497925021", hover = "rbxassetid://18497999901", hoverVolume = 0.25, clickVolume = 0.5}
 }
 
 local function _playLocalSound(soundId, volume)
@@ -130,7 +132,8 @@ function inventoryUI.updateInventory(content: {newInventory: {{string}}})
             newFrame.frame.Parent = inventoryUI.skinsFrame.instance.ScrollingFrame
         end
     end
-
+-- for _, v in game.StarterGui.Main.ShopFrame.Pages.Passes:GetChildren() do v.Circle.Image = "rbxassetid://18759747211"   end
+-- game.StarterGui.Main.ShopFrame.Pages.UIPageLayout:JumpToIndex(1)
     for i, v in toiletFrame.frames do
         if not inventoryDictionary[i] then
             v.frame:Destroy()
@@ -140,7 +143,7 @@ function inventoryUI.updateInventory(content: {newInventory: {{string}}})
             table.insert(sortArray, v)
         end
     end
-
+    
     table.sort(sortArray, function(a, b)
         return a.waterBoost > b.waterBoost
     end)
@@ -256,11 +259,11 @@ function inventoryUI.skinsFrameUpdate(wasOpened)
     end
 end
 
-function inventoryUI.start(modules: {})
-    billboard = modules["Components"].billboard
+function inventoryUI.start(modules)
     frame = modules["Components"].frame
     button = modules["Components"].button
     toiletFrame = modules["Components"].toiletFrame
+    burst = modules["Components"].burst
     library = modules.library
     util = modules.Util
     marketplaceEffect = modules.marketplaceEffect
@@ -281,6 +284,7 @@ function inventoryUI.start(modules: {})
     hydrate(plr:WaitForChild("InfoPack").Water) {
         [onChange "Value"] = function(newWater)
             main.Water.Count.Text = newWater
+            burst.new(main.Water)
         end
     }
 

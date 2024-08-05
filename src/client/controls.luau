@@ -1,4 +1,5 @@
 local rs = game:GetService("ReplicatedStorage")
+local players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 
 local userdataManipulation
@@ -149,6 +150,26 @@ function controls.init()
 end
 
 function controls.start(modules: {})
+
+    -- Name(s) of Enum.KeyCode items separated by commas
+    local KEYS = "LeftControl,RightControl"
+
+    local mouseLockController = players.LocalPlayer
+        .PlayerScripts
+        :WaitForChild("PlayerModule")
+        :WaitForChild("CameraModule")
+        :WaitForChild("MouseLockController")
+
+    local obj = mouseLockController:FindFirstChild("BoundKeys")
+    if obj then
+        obj.Value = KEYS
+    else
+        obj = Instance.new("StringValue")
+        obj.Name = "BoundKeys"
+        obj.Value = KEYS
+        obj.Parent = mouseLockController
+    end
+
     userdataManipulation = modules.Util.userdataManipulation
 
     UIS.InputBegan:Connect(function(input)

@@ -1,5 +1,7 @@
 local rs = game:GetService("ReplicatedStorage")
 local runService = game:GetService("RunService")
+local soundService = game:GetService("SoundService")
+local debris = game:GetService("Debris")
 local lighting = game:GetService("Lighting")
 local players = game:GetService("Players")
 
@@ -32,6 +34,15 @@ local hatching = {}
 hatching.hatchingInProgress = false
 hatching.currentJanitor = nil
 hatching.startThread = true
+
+local function _playLocalSound(soundId, volume)
+	local sound = Instance.new("Sound")
+	sound.Parent = soundService
+	sound.Volume = volume or 1
+	sound.SoundId = soundId
+	soundService:PlayLocalSound(sound)
+	debris:AddItem(sound, sound.TimeLength)
+end
 
 local function fitSize(v1: Vector3, v2: Vector3)
     local largestRatio = math.max(v1.X/v2.X, v1.Y/v2.Y, v1.Z/v2.Z)
@@ -98,6 +109,7 @@ function hatching.hatchEgg(content: {eggName: string, eggCount: number, results:
     hatching.currentJanitor:Add(task.spawn(function()
         task.wait(0.25)
         for i = 1, 4 do
+            _playLocalSound("rbxassetid://9113251325")
             if i == 1 then
                 rotation:set(30)
             else
@@ -172,6 +184,7 @@ function hatching.hatchEgg(content: {eggName: string, eggCount: number, results:
         end
 
         task.wait(0.25)
+        _playLocalSound("rbxassetid://4612378364")
         for i, v in toilets do
             for _, instance in v.Confetti:GetChildren() do
                 instance.Rate = 0

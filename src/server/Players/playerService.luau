@@ -4,7 +4,7 @@ local ms = game:GetService("MarketplaceService")
 local rs = game:GetService("ReplicatedStorage")
 local runService = game:GetService("RunService")
 local ss = game:GetService("ServerStorage")
-local bs = game:GetService("BadgeService")
+local badgeService = game:GetService("BadgeService")
 
 local dataService
 local library
@@ -17,6 +17,8 @@ local array = sift.Array
 local bridgeNet = require(packages.BridgeNet2)
 local updateInventoryBridge = bridgeNet.ReferenceBridge("updatedInventory")
 local equippedUpdate = bridgeNet.ReferenceBridge("equippedUpdate")
+local tutorialBridge = bridgeNet.ReferenceBridge("Tutorial")
+local rewardsBridge = bridgeNet.ReferenceBridge("rewards")
 local passesBridge = bridgeNet.ReferenceBridge("passesUpdate")
 local signal = require(packages.GoodSignal)
 local fusion = require(packages.Fusion)
@@ -25,6 +27,7 @@ local Value = fusion.Value
 local New = fusion.New
 local Observer = fusion.Observer
 local Children = fusion.Children
+local OnChange = fusion.OnChange
 
 -- Service
 local playerService = {}
@@ -32,6 +35,17 @@ playerService.players = {}
 playerService.playerJoined = signal.new()
 playerService.playerLeft = signal.new()
 
+function format(int)
+	return string.format("%02i", int)
+end
+
+function convertToHMS(seconds)
+	local minutes = (seconds - seconds%60)/60
+	seconds = seconds - minutes*60
+	local hours = (minutes - minutes%60)/60
+	minutes = minutes - hours*60
+	return format(hours)..":"..format(minutes)..":"..format(seconds)
+end
 
 -- Player Object --
 local player = {}
@@ -45,6 +59,8 @@ function player.new(plr: Player)
 	self.profile = dataService.retrieveProfile(plr)
 	self.data = self.profile.Data
 
+	self.data.Logins += 1
+
 	self.character = plr.Character or nil
 	self.characterPropertyConnection = nil
 	self.diedConnection = nil
@@ -52,6 +68,7 @@ function player.new(plr: Player)
 	self.lastKilledBy = Value(nil)
 	self.deployedToilet = nil
 	self.equipped = nil
+	self.tutorialCompleted = self.data.Logins > 1
 	self.joined = os.time()
 	self.ownedPasses = {}
 	self.autoDelete = {}
@@ -76,6 +93,18 @@ function player.new(plr: Player)
 		Parent = leaderstats
 	}
 
+	self.kills = New "IntValue" {
+		Name = "Kills",
+		Value = 0,
+		Parent = leaderstats
+	}
+
+	self.timeSurvived = New "StringValue" {
+		Name = "Time",
+		Value = "N/A",
+		Parent = leaderstats
+	}
+
 	self.infoPack = New "Folder" {
 		Name = "InfoPack",
 		[Children] = {
@@ -89,11 +118,31 @@ function player.new(plr: Player)
 			},
 			New "IntValue" {
 				Value = 0,
-				Name = "Kills"
+				Name = "Kills",
+
+				[OnChange "Value"] = function(newValue)
+					self.kills.Value = newValue
+				end
+			},
+			New "IntValue" {
+				Value = 0,
+				Name = "TimeSurvived",
+
+				[OnChange "Value"] = function(newValue)
+					--self.timeSurvived.Value = convertToHMS(newValue)
+					self.timeSurvived.Value = newValue
+				end
 			}
 		},
 		Parent = plr
 	}
+
+	for _, v in playerService.players do
+		if self.player:IsFriendsWith(v.id) and not table.find(v.data.FriendsJoined, self.id) then
+			table.insert(v.data.FriendsJoined, self.id)
+			rewardsBridge:Fire(v.player, {friends =  v.data.FriendsJoined, claimed = v.data.RewardsClaimed})
+		end
+	end
 
 	self.equipped = if self.data.EquippedId and self.data.EquippedId[1] then self.data.EquippedId[1] else "Default"
 
@@ -106,6 +155,10 @@ function player.new(plr: Player)
 	end
 
 	task.spawn(monetization.checkPasses, self)
+
+	pcall(function()
+		badgeService:AwardBadge(self.id, 321550957376207)
+	end)
 
 	plr.CharacterAdded:Connect(function(char)
 		self.hasBeenTeleported = true
@@ -124,7 +177,7 @@ function player.new(plr: Player)
             self.deployed:set(false)
             self.shielded:set(false)
 			self.deployedToilet = nil
-			self.size.Value = 1
+			self.size.Value /= 2
 			self.infoPack.Kills.Value = 0
 
 			task.wait(0.5)
@@ -278,6 +331,14 @@ function playerService.start(modules: {})dataService = modules.dataService
 		passesBridge:Fire(plr, playerService.players[plr].ownedPasses)
 	end)
 
+	tutorialBridge:Connect(function(plr, content)
+		if not content then
+			tutorialBridge:Fire(plr, playerService.players[plr].data.Logins <= 1)
+		else
+			playerService.players[plr].tutorialCompleted = true
+		end
+	end)
+
 	local lastUpdate = os.time()
 	runService.Heartbeat:Connect(function()
 		if os.time() - lastUpdate < 3 then
@@ -287,6 +348,19 @@ function playerService.start(modules: {})dataService = modules.dataService
 
 		for i, v in playerService.players do
 			equippedUpdate:Fire(v.player, {v.data.EquippedId})
+		end
+	end)
+
+	task.spawn(function()
+		while task.wait(1) do
+			for _, v in playerService.players do
+				if not v.deployed:get() then
+					v.infoPack.TimeSurvived.Value = 0
+					v.timeSurvived.Value = "N/A"
+				else
+					v.infoPack.TimeSurvived.Value += 1
+				end
+			end
 		end
 	end)
 end

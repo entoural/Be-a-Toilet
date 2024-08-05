@@ -47,7 +47,7 @@ function sprinting.start(modules)
 
         if isSprinting:get() and progress:get() >= 0.05 then
             sprintBridge:Fire(true)
-            springUtil.target(workspace.CurrentCamera, 1, 1, {FieldOfView = 100})
+            springUtil.target(workspace.CurrentCamera, 1, 1, {FieldOfView = 120})
         elseif isSprinting:get() and progress:get() < 0.05 then
             sprintBridge:Fire()
             isSprinting:set(false)
@@ -89,28 +89,6 @@ function sprinting.start(modules)
             isSprinting:set(true)
         end
     end)
-
-    --[[if plr.Character then
-        plr.Character.Humanoid.StateChanged:Connect(function(old, new)
-            print(old, new)
-            if isSprinting:get() and new == Enum.HumanoidStateType.Running then
-                playerGui.ZoomUI.ToggleEffect.Value = true
-            else
-                playerGui.ZoomUI.ToggleEffect.Value = false
-            end
-        end)
-    end
-
-    plr.CharacterAdded:Connect(function(char)
-        char.Humanoid.StateChanged:Connect(function(old, new)
-            print(old, new)
-            if isSprinting:get() and new == Enum.HumanoidStateType.Running then
-                playerGui.ZoomUI.ToggleEffect.Value = true
-            else
-                playerGui.ZoomUI.ToggleEffect.Value = false
-            end
-        end)
-    end)]]
 
     task.spawn(function()
         while task.wait(1/3) do

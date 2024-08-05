@@ -14,7 +14,7 @@ function Output.silent(info: string)
 end
 
 function Output.log(info: string)
-	print(`{PATTERN}{info}`)
+	--print(`{PATTERN}{info}`)
 end
 
 function Output.logAssert(condition: boolean, info: string)

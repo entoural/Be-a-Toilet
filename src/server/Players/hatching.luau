@@ -172,7 +172,6 @@ function hatching.start(modules: {ModuleScript})
         end
 
         if library.eggs[content.name].type == "Robux" then
-            print("Removing")
             object.data.SpecialEggs[content.name] -= count
             specialEggBridge:Fire(player, object.data.SpecialEggs)
         end

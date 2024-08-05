@@ -41,8 +41,8 @@ function frame.new(instance, callback)
     self.position = value(UDim2.new(self.originalPosition.X.Scale, 0, self.originalPosition.Y.Scale + 0.2, 0))
 
     hydrate(self.instance) {
-        Size = spring(self.size, 25, 0.6),
-        Position = spring(self.position, 15, 0.6)
+        Size = spring(self.size, 35, 0.6),
+        Position = spring(self.position, 25, 0.6)
     }
 
     if self.instance:FindFirstChild("Close") then
@@ -57,6 +57,8 @@ function frame.new(instance, callback)
 end
 
 function frame:close()
+    if not self.opened:get() then return end
+
     self.opened:set(false)
     if self.callback then
         self.callback()

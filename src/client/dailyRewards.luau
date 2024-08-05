@@ -12,6 +12,7 @@ local main = playerGui:WaitForChild("Main")
 local bridgeNet = require(packages.BridgeNet2)
 local janitor = require(packages.Janitor)
 local sift = require(packages.Sift)
+local signal = require(packages.GoodSignal)
 local fusion = require(packages.Fusion)
 local button
 local productButton
@@ -37,12 +38,13 @@ daily.defaultProps = {
 	onHover = true,
 	onClick = true,
 	callbacks = {},
-	sounds = {click = "rbxassetid://6324790483", hover = "rbxassetid://7218169592", hoverVolume = 0.5, clickVolume = 0.5}
+	sounds = {click = "rbxassetid://18497925021", hover = "rbxassetid://18497999901", hoverVolume = 0.25, clickVolume = 0.5}
 }
 daily.streakInfo = {}
 daily.startThread = true
 
 daily.rewardButtons = {}
+daily.dailyFrameOpened = signal.new()
 
 function format(int)
 	return string.format("%02i", int)
@@ -83,7 +85,7 @@ function daily.update(content)
             v.Claim.Visible = true
             v.Claim.ImageTransparency = 1
             v.Claim.Price.Text = "Claimed"
-            v.Claim.Price.TextColor3 = Color3.new(0.1, 0.1, 0.1)
+            v.Claim.Price.TextColor3 = Color3.new(1, 1, 1)
         elseif num > content.length + 1 then
             v.Claim.Visible = false
         elseif num == content.length + 1 then
@@ -117,6 +119,8 @@ function daily.update(content)
 end
 
 function daily.skinsFrameUpdate()
+    daily.dailyFrameOpened:Fire(daily.dailyFrame, daily.dailyFrame.opened:get())
+
     if daily.dailyFrame.opened:get() then
         if daily.janitor then
             daily.janitor:Destroy()
@@ -135,10 +139,15 @@ end
 
 function daily.playtimeHeartbeat()
     local earliestUnclaimed = nil
-    for i, v in daily.rewardButtons do
+    local earliestReceivedUnclaimed = nil
+    for _, v in daily.rewardButtons do
         local t = tonumber(v.instance.Name) * 60 - (os.time() - daily.joined)
         if not v.claimed and (not earliestUnclaimed or tonumber(v.instance.Name) < tonumber(earliestUnclaimed.instance.Name)) and t >= 0 then
             earliestUnclaimed = v
+        end
+
+        if not v.claimed and t < 0 then
+            earliestReceivedUnclaimed = v
         end
 
         if not daily.playtimeFrame.opened:get() then
@@ -150,7 +159,7 @@ function daily.playtimeHeartbeat()
             v.instance.Timer.TextColor3 = Color3.new(0.1, 0.1, 0.1)
         elseif tonumber(v.instance.Name) * 60 > os.time() - daily.joined then
             v.instance.Timer.Text = convertToHMS((tonumber(v.instance.Name) * 60) - (os.time() - daily.joined))
-            v.instance.Timer.TextColor3 = Color3.new(0.188235, 0.549019, 0.792156)
+            v.instance.Timer.TextColor3 = Color3.new(1, 0, 0)
         elseif tonumber(v.instance.Name) * 60 <= os.time() - daily.joined then
             v.instance.Timer.Text = "Ready!"
             v.instance.Timer.TextColor3 = Color3.new(1 ,1, 1)
@@ -161,6 +170,12 @@ function daily.playtimeHeartbeat()
         main.PlaytimeOpen.TextLabel.Text = convertToHMS((tonumber(earliestUnclaimed.instance.Name) * 60) - (os.time() - daily.joined))
     elseif main.PlaytimeOpen.TextLabel.Visible then
         main.PlaytimeOpen.TextLabel.Visible = false
+    end
+
+    if earliestReceivedUnclaimed then
+        main.Arrows.Playtime.Visible = true
+    else
+        main.Arrows.Playtime.Visible = false
     end
 end
 

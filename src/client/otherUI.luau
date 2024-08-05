@@ -1,40 +1,55 @@
 local players = game:GetService("Players")
 local rs = game:GetService("ReplicatedStorage")
+local aes = game:GetService("AvatarEditorService")
+local socialService = game:GetService("SocialService")
 local runService = game:GetService("RunService")
 local ts = game:GetService("TweenService")
 
 local packages = rs:WaitForChild("Packages")
 local fusion = require(packages.Fusion)
 local bridgeNet = require(packages.BridgeNet2)
+local signal = require(packages.GoodSignal)
 local sift = require(packages.Sift)
 local plr = players.LocalPlayer
 local playerGui = plr:WaitForChild("PlayerGui")
 local main = playerGui:WaitForChild("Main")
+local billboards = playerGui:WaitForChild("Billboards")
+
+local returnButton = main:WaitForChild("ReturnToLobby")
 local userdataManipulation
 local marketplaceEffect
 local library
+local toiletInfo
 local springUtil
 local button
+local toiletViewport
 local notifs
 local frame
 
 local killedBridge = bridgeNet.ReferenceBridge("killPlayer")
 local spinBridge = bridgeNet.ReferenceBridge("spins")
+local rewardsBridge = bridgeNet.ReferenceBridge("rewards")
 --local wheelBridge = bridgeNet.ReferenceBridge("spinWheel")
 local dictionary = sift.Dictionary
+local new = fusion.New
+local onEvent = fusion.OnEvent
 local hydrate = fusion.Hydrate
 local onChange = fusion.OnChange
+local children = fusion.Children
 
 local otherUI = {}
 otherUI.startThread = true
+otherUI.initThread = true
 
 otherUI.defaultProps = {
 	type = "ImageButton",
 	onHover = true,
 	onClick = true,
 	callbacks = {},
-	sounds = {click = "rbxassetid://6324790483", hover = "rbxassetid://7218169592", hoverVolume = 0.5, clickVolume = 0.5}
+	sounds = {click = "rbxassetid://18497925021", hover = "rbxassetid://18497999901", hoverVolume = 0.25, clickVolume = 0.5}
 }
+
+otherUI.returning = false
 
 local function format(int)
 	return string.format("%02i", int)
@@ -54,7 +69,7 @@ function otherUI.updateNameTags()
             continue
         end
 
-        if v.leaderstats.Size.Value < plr.leaderstats.Size.Value then
+        if v.leaderstats.Size.Value < plr.leaderstats.Size.Value and v.leaderstats.Size.Value >= 1000 then
             v.Character.HumanoidRootPart:WaitForChild("NameTag").Frame.NameLabel.TextColor3 = Color3.new(0, 1, 0)
         else
             v.Character.HumanoidRootPart:WaitForChild("NameTag").Frame.NameLabel.TextColor3 = Color3.new(1, 0, 0)
@@ -97,12 +112,14 @@ function otherUI.updatedSpinCount(newCount)
         spinButton.SpinText.Visible = false
         spinButton.ImageLabel.Visible = true
         spinButton.Price.Visible = true
+        main.Arrows.Spins.Visible = false
     else
         spinButton.Count.Text = newCount.."x"
         spinButton.Count.Visible = true
         spinButton.SpinText.Visible = true
         spinButton.ImageLabel.Visible = false
         spinButton.Price.Visible = false
+        main.Arrows.Spins.Visible = true
     end
 end
 
@@ -121,12 +138,129 @@ function otherUI.spinButtonClicked(spinButton)
     end
 end
 
+function otherUI.returnButtonClicked()
+    if otherUI.returning then
+        return
+    end
+
+    otherUI.returning = true
+    returnButton.Time.Text = "7"
+
+    local startTime = os.time()
+    local connection
+    connection = runService.Heartbeat:Connect(function()
+        local count = math.clamp(os.time() - startTime, 0, 7)
+        returnButton.Time.Text = 7 - count
+
+        if count == 7 then
+            connection:Disconnect()
+
+            returnButton.Time.Text = ""
+
+            if plr.Character then
+                plr.Character.Humanoid.Health = 0
+                otherUI.returning = false
+            end
+        end
+    end)
+end
+
+function otherUI.setUpEggOptions()
+    for _, egg in main.ShopFrame.Pages.Eggs:GetChildren() do
+        if not egg:IsA("Frame") then continue end
+
+        local eggTable = if egg.Name == "Mystery Egg" then library.eggs["???"] else library.eggs[egg.Name]
+
+        for toiletName, chance in eggTable.options do
+            local toiletFrame = new "ImageLabel" {
+                BackgroundTransparency = 1,
+                Size = UDim2.new(0.178, 0, 1, 0),
+                Image = "rbxassetid://18337189576",
+                Name = toiletName,
+                Parent = egg.Options,
+
+                [children] = {
+                    new "TextLabel" {
+                        TextScaled = true,
+                        FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json", Enum.FontWeight.Regular),
+                        BackgroundTransparency = 1,
+                        AnchorPoint = Vector2.new(0.5, 0.5),
+                        Position = UDim2.new(0.5, 0, 0.9, 0),
+                        Size = UDim2.new(1, 0, 0.2, 0),
+                        TextColor3 = Color3.new(0, 0.7, 1),
+                        Text = library.toilets[toiletName].waterBoost,
+                        ZIndex = 2
+                    },
+                    new "TextLabel" {
+                        TextScaled = true,
+                        FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json", Enum.FontWeight.Regular),
+                        BackgroundTransparency = 1,
+                        AnchorPoint = Vector2.new(0.5, 0.5),
+                        Position = UDim2.new(0.5, 0, 0.1, 0),
+                        Size = UDim2.new(1, 0, 0.2, 0),
+                        TextColor3 = Color3.new(0.015686, 0.760784, 0.176470),
+                        Text = chance * 100 .. "%",
+                        ZIndex = 2
+                    },
+                    new "ViewportFrame" {
+                        Size = UDim2.new(1, 0, 1, 0),
+                        BackgroundTransparency = 1,
+                        AnchorPoint = Vector2.new(0.5, 0.5),
+                        Position = UDim2.new(0.5, 0, 0.5, 0),
+                        Name = "Viewport",
+                        [children] = {
+                            new "Camera" {
+                                Name = "Camera"
+                            }
+                        }
+                    },
+                    new "UIAspectRatioConstraint" {
+                        AspectRatio = 1
+                    },
+                    new "TextButton" {
+                        AnchorPoint = Vector2.new(0.5, 0.5),
+                        BackgroundTransparency = 1,
+                        Text = "",
+                        Position = UDim2.new(0.5, 0, 0.5, 0),
+                        Size = UDim2.new(1, 0, 1, 0),
+                        ZIndex = 3,
+                        [onEvent "MouseEnter"] = function()
+                            toiletInfo.enable(toiletName)
+                        end,
+                        [onEvent "MouseLeave"] = function()
+                            toiletInfo.disable()
+                        end
+                    }
+                }
+            }
+
+            toiletViewport.new(toiletFrame.Viewport, toiletName)
+        end
+    end
+end
+
+function otherUI.init()
+    local function attempt()
+        local success, err = pcall(function()
+            return game:GetService("StarterGui"):SetCore("ResetButtonCallback", false)
+        end)
+        if not success then
+            task.wait(5)
+            attempt()
+        end
+    end
+
+    attempt()
+end
+
 function otherUI.start(modules)
     frame = modules.Components["frame"]
     button = modules.Components["button"]
+    toiletViewport = modules.toiletViewport
     userdataManipulation = modules.Util.userdataManipulation
     marketplaceEffect = modules.marketplaceEffect
     springUtil = modules.Util.spring
+    toiletInfo = modules.toiletInfo
     notifs = modules.notifs
     library = modules.library
 
@@ -136,6 +270,9 @@ function otherUI.start(modules)
     button.new(dictionary.merge(otherUI.defaultProps, {instance = main.DiedFrame:FindFirstChild("Revenge Kill"), callbacks = {click = otherUI.killProductClicked}}))
     button.new(dictionary.merge(otherUI.defaultProps, {instance = main.DiedFrame:FindFirstChild("Respawn 2x Size"), callbacks = {click = otherUI.killProductClicked}}))
     button.new(dictionary.merge(otherUI.defaultProps, {instance = main.SpinsOpen, callbacks = {click = otherUI.spinWheelClicked}}))
+    button.new(dictionary.merge(otherUI.defaultProps, {instance = returnButton, callbacks = {click = otherUI.returnButtonClicked}}))
+
+    otherUI.setUpEggOptions()
 
     spinBridge:Connect(function(content)
         if content.purpose == "requested" then
@@ -156,7 +293,7 @@ function otherUI.start(modules)
 
             local connection = runService.Heartbeat:Connect(function()
                 local isAtHalfArc = (wheel.Rotation%60 > 57 or wheel.Rotation%60  < 3)
-                if wheel.Rotation%30 > 28 or wheel.Rotation%30 < 2 and (wheel.Rotation > 3 and wheel.Rotation < 357) and not isAtHalfArc then
+                if (wheel.Rotation%30 > 28 or wheel.Rotation%30 < 2 and (wheel.Rotation > 3 and wheel.Rotation < 357)) and not isAtHalfArc then
                     main.SpinsFrame.Indicator.Rotation = 15
                 else
                     main.SpinsFrame.Indicator.Rotation = 0
@@ -188,12 +325,6 @@ function otherUI.start(modules)
 
     spinBridge:Fire()
     runService.Heartbeat:Connect(otherUI.update)
-
-    task.spawn(function()
-        --[[while task.wait(0.5) do
-            spinBridge:Fire(true)
-        end]]
-    end)
 
     killedBridge:Connect(function(content: {killed: Player, killedBy: Player})
         if content.killed ~= plr then
@@ -254,11 +385,49 @@ function otherUI.start(modules)
         end
     end)
 
+    local groupClaimed = false
+    local friendsClaimed = false
+    rewardsBridge:Connect(function(content: {friends: {number}, claimed: {[string]: boolean}})
+        --[[local friendsCompletion = math.clamp(#content.friends / 3, 0, 1)
+        if friendsCompletion == 1 then
+            friendsClaimed = true
+        end
+        billboards.Friends.Frame.Frame.Canvas.Bar.Size = UDim2.new(friendsCompletion, 0, 1, 0)
+
+        if content.claimed.Friends then
+            friendsClaimed = true
+            billboards.Friends.Frame.Button.TextLabel.Text = "Claimed"
+        end]]
+        if content.claimed.Group then
+            groupClaimed = true
+            billboards.Group.Frame.Button.TextLabel.Text = "Claimed"
+        end
+    end)
+    rewardsBridge:Fire()
+
+    --[[billboards.Friends.Frame.Button.MouseButton1Click:Connect(function()
+        rewardsBridge:Fire("requested")
+        if not friendsClaimed then
+            socialService:PromptGameInvite(plr)
+        end
+    end)]]
+    billboards.Group.Frame.Button.MouseButton1Click:Connect(function()
+        rewardsBridge:Fire("requested")
+        --[[if not groupClaimed then
+            aes:PromptSetFavorite(game.PlaceId, 1, true)
+        end]]
+    end)
+
+
     local deployCallbacks = {}
 
     hydrate(plr:WaitForChild("InfoPack").Deployed) {
         [onChange "Value"] = function(newValue)
-            for i,v in deployCallbacks do
+            if newValue then
+                
+            end
+
+            for _,v in deployCallbacks do
                 task.spawn(v, newValue)
             end
         end
@@ -267,6 +436,8 @@ function otherUI.start(modules)
     table.insert(deployCallbacks, function(isDeployed)
         main:WaitForChild("BottomProducts"):FindFirstChild("Double Size").Visible = isDeployed
         main:WaitForChild("BottomProducts"):FindFirstChild("Shield").Visible = isDeployed
+
+        returnButton.Visible = isDeployed
     end)
 
     task.spawn(function()
@@ -292,6 +463,21 @@ function otherUI.start(modules)
             end)
 
             task.wait(2)
+        end
+    end)
+
+    local arrowTI = TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+    for _, v in main.Arrows:GetChildren() do
+        ts:Create(v:FindFirstChildOfClass("ImageLabel"), arrowTI, {Position = UDim2.new(0.5, 0, 1, 0)}):Play()
+    end
+
+    local timeToTween = 5
+    runService.RenderStepped:Connect(function()
+        local hue = os.clock() % timeToTween / timeToTween
+        local color = Color3.fromHSV(hue, 1, 1)
+
+        for _, v in main.Arrows:GetChildren() do
+            v:FindFirstChildOfClass("ImageLabel").ImageColor3 = color
         end
     end)
 

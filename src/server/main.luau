@@ -6,6 +6,7 @@ local playerService
 local library
 local spring
 
+local timer = rs:WaitForChild("ResetTime")
 local packages = rs:WaitForChild("Packages")
 local bridgeNet = require(packages.BridgeNet2)
 
@@ -23,6 +24,7 @@ local spawns = workspace:WaitForChild("Spawns"):GetChildren()
 
 local main = {}
 main.executePriority = 2
+main.startThread = true
 
 main.deployIgnored = {
     "Head",
@@ -37,7 +39,7 @@ main.deployIgnoredAccessories = {
 
 function main.sizeToMulti(size)
     --return if size == 1 then 0.2 else math.log(size) / math.log(10)
-    return size ^ (1 / 7)
+    return size ^ (1 / 4)
 end
 
 function main.isInRange(player, collectible)
@@ -45,7 +47,9 @@ function main.isInRange(player, collectible)
         return false
     end
 
-    local range = playerService.players[player].character:GetExtentsSize().Y * 0.4 + (main.sizeToMulti(playerService.players[player].size.Value) * 2) + 3
+    local size = if collectible:IsA("BasePart") then math.max(collectible.Size.X / 2, collectible.Size.Z / 2) * 1.5 else math.max(collectible:GetExtentsSize().X / 2, collectible:GetExtentsSize().Y / 2) * 1.5
+
+    local range = playerService.players[player].character:GetExtentsSize().Y * 0.4 + (main.sizeToMulti(playerService.players[player].size.Value) * 2) + size
     local objectPosition = if collectible:IsA("BasePart") then collectible.Position else collectible:GetPivot().Position
     if (playerService.players[player].character.HumanoidRootPart.Position - objectPosition).Magnitude <= range then
         return true
@@ -192,7 +196,7 @@ function main.deployPlayer(player, size, speed, shield)
 
     clone.Anchored = false
 
-    local spawn = spawns[math.random(1, 4)]
+    local spawn = spawns[math.random(1, #spawns)]
     object.character.HumanoidRootPart.Anchored = false
     object.character:PivotTo(spawn.CFrame + Vector3.new(0, object.character:GetExtentsSize().Y / 2, 0))
 
@@ -213,8 +217,21 @@ function main.start(modules: {})
     spring = modules["Util"].spring
     library = modules.library
 
-    for i, v in workspace:WaitForChild("Collect"):GetChildren() do
-        v.Name = math.random(1, 10000000)
+    for _, v in workspace:WaitForChild("Collect"):GetChildren() do
+        local originalName = v.Name
+        local nameValue = Instance.new("StringValue")
+        nameValue.Name = "OriginalName"
+        nameValue.Value = originalName
+        nameValue.Parent = v
+
+        local success, itemId = pcall(function()
+            return game:GetService("HttpService"):GenerateGUID()
+        end)
+        if success then
+            v.Name = itemId
+        else
+            v.Name = math.random(1, 100000000)
+        end
         local value = Instance.new("BoolValue")
         value.Name = "Collected"
         value.Value = false
@@ -228,12 +245,12 @@ function main.start(modules: {})
             end
             local object = playerService.players[v]
 
-            local size = 1
+            local size = object.size.Value
             if #object.data.Boosts.size >= 1 then
                 table.sort(object.data.Boosts.size, function(a, b)
                     return a > b
                 end)
-                size = object.data.Boosts.size[1]
+                size += object.data.Boosts.size[1]
                 table.remove(object.data.Boosts.size, 1)
             end
 
@@ -246,7 +263,7 @@ function main.start(modules: {})
                 table.remove(object.data.Boosts.speed, 1)
             end
 
-            local shield = 10
+            local shield = 30
             if #object.data.Boosts.shield >= 1 then
                 table.sort(object.data.Boosts.shield, function(a, b)
                     return a > b
@@ -255,27 +272,42 @@ function main.start(modules: {})
                 table.remove(object.data.Boosts.shield, 1)
             end
 
+            if not object.tutorialCompleted then
+                shield = 200
+            end
+
             main.deployPlayer(v, size, speed, shield)
         end
     end)
 
     collect:Connect(function(plr, content)
-        local sizeValue = workspace.Collect:FindFirstChild(content.name):FindFirstChild("Size").Value
-        local isInRange = main.isInRange(plr, workspace.Collect:FindFirstChild(content.name))
-        local collectedValue = workspace.Collect:FindFirstChild(content.name).Collected.Value
+        local object = playerService.players[plr]
+        local instance = workspace.Collect:FindFirstChild(content.name)
+        local sizeValue = instance:FindFirstChild("Size").Value
+        local isInRange = main.isInRange(plr, instance)
+        local collectedValue = instance.Collected.Value
         local size = playerService.players[plr].size.Value
         local playerSize = size >= sizeValue
 
-        if not workspace.Collect:FindFirstChild(content.name) or not playerService.players[plr].deployed:get() or collectedValue or not isInRange or not playerSize or playerService.players[plr].beingKilled:get()then
+        if instance:FindFirstChild("VIP") then
+            if object.ownedPasses["VIP"][1] then
+                playerSize = true
+                isInRange = true
+            else
+                playerSize = false
+            end
+        end
+
+        if not instance or not object.deployed:get() or collectedValue or not isInRange or not playerSize or object.beingKilled:get() then
             return
         end
 
         local sizeBoost = library.toilets[playerService.players[plr].deployedToilet].sizeBoost
         local waterBoost = library.toilets[playerService.players[plr].deployedToilet].waterBoost
 
-        playerService.players[plr]:addWater(1 * waterBoost)
+        object:addWater(1 * waterBoost)
         workspace.Collect:FindFirstChild(content.name).Collected.Value = true
-        playerService.players[plr].size.Value += if sizeValue <= 100 then sizeValue * sizeBoost else 0.55 * sizeValue * sizeBoost
+        object.size.Value += if sizeValue <= 1000 then math.clamp(sizeValue / 4 * sizeBoost, 1, math.huge) else sizeValue / 12 * sizeBoost
         size = playerService.players[plr].size.Value
 
         main.resizePlayer(plr, size)
@@ -298,8 +330,6 @@ function main.start(modules: {})
             return
         end
 
-        plr.InfoPack.Kills.Value += 1
-
         local object = playerService.players[plr]
         local targetObject = playerService.players[target]
 
@@ -310,10 +340,12 @@ function main.start(modules: {})
 
         local sized = main.getSizedToilet(object.size.Value)
         local difference = object.character:GetPivot().Position - targetObject.character:GetPivot().Position
-        if math.abs(difference.X) > sized.X * 1.3 and math.abs(difference.X) > sized.X * 1.3 or object.size.Value <= targetObject.size.Value then
+        if math.abs(difference.X) > sized.X * 1.3 and math.abs(difference.X) > sized.X * 1.3 or object.size.Value <= targetObject.size.Value or targetObject.size.Value < 1000 then
             print("Didnt pass requirements")
             return
         end
+
+        plr.InfoPack.Kills.Value += 1
 
         targetObject.beingKilled:set(true)
         targetObject.lastKilledBy:set(plr)
@@ -323,6 +355,7 @@ function main.start(modules: {})
         task.delay(3, function()
             if plr and object then
                 object.size.Value += size
+                plr.Character.HumanoidRootPart.NameTag.Frame.SizeLabel.Text = object.size.Value
                 if object.deployed:get() then
                     main.resizePlayer(plr, object.size.Value)
                 end
@@ -342,6 +375,19 @@ function main.start(modules: {})
             plr.Character.Toilet.Sprint.Effect1.Enabled = false
         end
     end)
+
+    timer.Value = os.time() + 900
+
+    while task.wait(900) do
+        for _, plr in playerService.players do
+            plr.size.Value = 1
+            if plr.deployed:get() and plr.character and not plr.beingKilled:get() then
+                plr.character.Humanoid.Health = 0
+            end
+        end
+
+        timer.Value = os.time() + 900
+    end
 end
 
 return main

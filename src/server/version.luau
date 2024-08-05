@@ -1,4 +1,5 @@
 local m = {}
+m.startThread = true
 
 function m.start()
     local StarterGui = game:GetService("StarterGui")

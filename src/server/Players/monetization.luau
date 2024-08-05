@@ -87,6 +87,10 @@ monetization.spinProducts = {
 }
 
 function monetization.checkPasses(player)
+    while not library do
+        task.wait()
+    end
+
     for i, v in library.passes do
         if not player.ownedPasses[i] or player.ownedPasses[i][1] then
             continue
@@ -388,7 +392,7 @@ monetization.productFunctions[1865841284] = function(plr) -- Nuke
 
             local start = os.clock()
             local totalTime = 10
-            local targetScale = 50
+            local targetScale = 150
             local currentScale = 1
             local originalMagnitude = explosion:GetExtentsSize().X / 2
 

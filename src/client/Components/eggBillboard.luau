@@ -41,7 +41,7 @@ egg.defaultProps = {
 	onHover = true,
 	onClick = true,
 	callbacks = {},
-	sounds = {click = "rbxassetid://6324790483", hover = "rbxassetid://7218169592", hoverVolume = 0.5, clickVolume = 0.5}
+	sounds = {click = "rbxassetid://18497925021", hover = "rbxassetid://18497999901", hoverVolume = 0.25, clickVolume = 0.5}
 }
 
 function eggBillboards.getEggFromBillboard(billboardObject)
@@ -64,6 +64,10 @@ function eggBillboards.new(gui, name, countSignal)
     self.gui.Frame.Main.EggName.Text = name
     self.gui.Frame.Main.EggCost.Text = library.eggs[name].cost
 
+    local passes = self.gui.Frame.Passes
+    passes:FindFirstChild("Extra Lucky Hatch").Buy.Price.Text = 545
+    passes:FindFirstChild("Lucky Hatch").Buy.Price.Text = 245
+
     while not library do
         task.wait()
     end
@@ -71,32 +75,20 @@ function eggBillboards.new(gui, name, countSignal)
     self.toiletOptions = {}
 
     local toilets = self.gui.Frame.Main.Toilets
-    for i, _ in library.eggs[name].options do
-        --[[self.toiletOptions[i] = new "Frame" {
-            BackgroundColor3 = Color3.fromRGB(171, 171, 171),
-            Size = UDim2.new(1/3, 0, 1/3, 0),
-            Name = i,
-            Parent = toilets,
-            [children] = {
-                new "UIAspectRatioConstraint" {
-                    AspectRatio = 1
-                },
-                new "TextLabel" {
-                    Size = UDim2.new(1, 0, 1, 0),
-                    BackgroundTransparency = 1,
-                    TextScaled = true,
-                    FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json	", Enum.FontWeight.Bold),
-                    Text = i
-                },
-                new "UICorner" {
-                    CornerRadius = UDim.new(0.2, 0)
-                }
-            }
-        }]]
 
-        local newOption = eggOption.new(i, name)
-        newOption.button.Parent = toilets
-        self.toiletOptions[i] = newOption
+    if name == "Mystery Egg" then
+        for i = 1, 6 do
+            local newOption = eggOption.new("???"..i, "???")
+            newOption.button.Parent = toilets
+            self.toiletOptions[i] = newOption
+        end
+    else
+        for i, v in library.eggs[name].options do
+            local newOption = eggOption.new(i, name)
+            newOption.button.LayoutOrder = v * 100
+            newOption.button.Parent = toilets
+            self.toiletOptions[i] = newOption
+        end
     end
 
     local function passCallback(passButton)

@@ -21,4 +21,12 @@ function module.color(instance, color)
     end
 end
 
+function module.colorToGradient(color)
+    if typeof(color) == "Color3" then
+        return ColorSequence.new(color)
+    else
+        return color
+    end
+end
+
 return module

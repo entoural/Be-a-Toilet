@@ -135,7 +135,7 @@ function streaks.start(modules)
                     plr.data.streakInfo.lastClaimedSpin = os.time()
                     plr.data.Spins += 1
 
-                    spinBridge:Fire(plr, {purpose = "requested", count =  playerService.players[plr].data.Spins, last = plr.data.streakInfo.lastClaimedSpin})
+                    spinBridge:Fire(plr, {purpose = "requested", count =  plr.data.Spins, last = plr.data.streakInfo.lastClaimedSpin})
                 end
             end
         end
